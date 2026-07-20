@@ -9,7 +9,10 @@
 // Based on bitluni's ESP32CompositeVideo (CC0)
 // https://github.com/bitluni/ESP32CompositeVideo
 
-#include "esp_pm.h"
+#include <assert.h>
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "CompositeGraphics.h"
 #include "CompositeOutput.h"
 #include "font6x8.h"
@@ -59,23 +62,18 @@ void draw()
   graphics.end();
 }
 
-void setup()
+extern "C" void app_main(void)
 {
-  // Lock CPU at maximum frequency for reliable composite timing
-  esp_pm_lock_handle_t powerManagementLock;
-  esp_pm_lock_create(ESP_PM_CPU_FREQ_MAX, 0, "compositeCorePerformanceLock", &powerManagementLock);
-  esp_pm_lock_acquire(powerManagementLock);
-
   // Initialise I2S/DAC composite output and graphics buffers
   composite.init();
   graphics.init();
   graphics.setFont(font);
-
-  // Run the composite output on core 0; rendering runs on core 1 (loop())
-  xTaskCreatePinnedToCore(compositeCore, "compositeCoreTask", 1024, NULL, 1, NULL, 0);
-}
-
-void loop()
-{
   draw();
+
+  // Start output after the first complete frame is ready.
+  BaseType_t taskCreated = xTaskCreatePinnedToCore(
+    compositeCore, "compositeCoreTask", 1024, NULL, 1, NULL, 0);
+  assert(taskCreated == pdPASS);
+
+  vTaskDelay(portMAX_DELAY);
 }

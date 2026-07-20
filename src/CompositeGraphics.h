@@ -1,6 +1,9 @@
 // Based on bitluni's ESP32CompositeVideo (CC0)
 // https://github.com/bitluni/ESP32CompositeVideo
 #pragma once
+#include <algorithm>
+#include <stdlib.h>
+
 #include "Font.h"
 #include "TriangleTree.h"
 
@@ -122,7 +125,7 @@ class CompositeGraphics
   inline void dotAdd(int x, int y, char color)
   {
     if((unsigned int)x < (unsigned int)xres && (unsigned int)y < (unsigned int)yres)
-      backbuffer[y][x] = min(54, color + backbuffer[y][x]);
+      backbuffer[y][x] = std::min(54, color + backbuffer[y][x]);
   }
 
   inline char get(int x, int y)

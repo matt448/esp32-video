@@ -1,7 +1,13 @@
 // Based on bitluni's ESP32CompositeVideo (CC0)
 // https://github.com/bitluni/ESP32CompositeVideo
 #pragma once
-#include "driver/i2s.h"
+#include <assert.h>
+#include <stdlib.h>
+
+#include "driver/dac_continuous.h"
+#include "esp_check.h"
+#include "soc/i2s_reg.h"
+#include "soc/soc.h"
 
 typedef struct
 {
@@ -99,9 +105,8 @@ class CompositeOutput
 
   float pixelAspect;
 
-  unsigned short *line;
-
-  static const i2s_port_t I2S_PORT = (i2s_port_t)I2S_NUM_0;
+  unsigned char *line;
+  dac_continuous_handle_t dac;
 
   enum Mode
   {
@@ -158,26 +163,23 @@ class CompositeOutput
 
   void init()
   {
-    line = (unsigned short*)malloc(sizeof(unsigned short) * samplesLine);
-    i2s_config_t i2s_config = {
-      .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX | I2S_MODE_DAC_BUILT_IN),
-      .sample_rate = 1000000,
-      .bits_per_sample = (i2s_bits_per_sample_t)I2S_BITS_PER_SAMPLE_16BIT,
-      .channel_format = I2S_CHANNEL_FMT_ONLY_RIGHT,
-      .communication_format = (i2s_comm_format_t)I2S_COMM_FORMAT_STAND_MSB,
-      .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
-      .dma_buf_count = 2,
-      .dma_buf_len = samplesLine,
-      .use_apll = false,
-      .tx_desc_auto_clear = false,
-      .fixed_mclk = 0
+    line = (unsigned char*)malloc(samplesLine);
+    assert(line);
+    dac_continuous_config_t dacConfig = {
+      .chan_mask = DAC_CHANNEL_MASK_CH0,
+      .desc_num = 2,
+      .buf_size = (size_t)samplesLine,
+      .freq_hz = 1000000,
+      .offset = 0,
+      .clk_src = DAC_DIGI_CLK_SRC_DEFAULT,
+      .chan_mode = DAC_CHANNEL_MODE_SIMUL
     };
 
-    i2s_driver_install(I2S_PORT, &i2s_config, 0, NULL);
-    i2s_set_pin(I2S_PORT, NULL);
-    i2s_set_sample_rates(I2S_PORT, 1000000);
+    ESP_ERROR_CHECK(dac_continuous_new_channels(&dacConfig, &dac));
+    ESP_ERROR_CHECK(dac_continuous_enable(dac));
 
-    // Hack to enable the highest sampling rate (~13 MHz)
+    // DAC continuous mode owns I2S0 DMA but limits its public clock API to
+    // 2.5 MHz. Composite video needs the original 13.33 MHz I2S0 divider.
     SET_PERI_REG_BITS(I2S_CLKM_CONF_REG(0), I2S_CLKM_DIV_A_V, 1, I2S_CLKM_DIV_A_S);
     SET_PERI_REG_BITS(I2S_CLKM_CONF_REG(0), I2S_CLKM_DIV_B_V, 1, I2S_CLKM_DIV_B_S);
     SET_PERI_REG_BITS(I2S_CLKM_CONF_REG(0), I2S_CLKM_DIV_NUM_V, 2, I2S_CLKM_DIV_NUM_S);
@@ -186,13 +188,12 @@ class CompositeOutput
 
   void sendLine()
   {
-    esp_err_t error = ESP_OK;
     size_t bytes_written = 0;
-    size_t bytes_to_write = samplesLine * sizeof(unsigned short);
+    size_t bytes_to_write = samplesLine;
     size_t cursor = 0;
-    while(error == ESP_OK && bytes_to_write > 0)
+    while(bytes_to_write > 0)
     {
-      error = i2s_write(I2S_PORT, (const char *)line + cursor, bytes_to_write, &bytes_written, portMAX_DELAY);
+      ESP_ERROR_CHECK(dac_continuous_write(dac, line + cursor, bytes_to_write, &bytes_written, -1));
       bytes_to_write -= bytes_written;
       cursor += bytes_written;
     }
@@ -201,7 +202,7 @@ class CompositeOutput
   inline void fillValues(int &i, unsigned char value, int count)
   {
     for(int j = 0; j < count; j++)
-      line[i++^1] = value << 8;
+      line[i++] = value;
   }
 
   void fillLine(char *pixels)
@@ -212,9 +213,9 @@ class CompositeOutput
     fillValues(i, levelBlack, samplesBlackLeft);
     for(int x = 0; x < targetXres / 2; x++)
     {
-      short pix = (levelBlack + pixels[x]) << 8;
-      line[i++^1] = pix;
-      line[i++^1] = pix;
+      unsigned char pix = levelBlack + pixels[x];
+      line[i++] = pix;
+      line[i++] = pix;
     }
     fillValues(i, levelBlack, samplesBlackRight);
     fillValues(i, levelBlank, samplesBack);

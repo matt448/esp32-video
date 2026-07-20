@@ -17,25 +17,23 @@ Connect the RCA connector to a TV or monitor's composite video (yellow) input.
 
 ## Software
 
-The project uses [PlatformIO](https://platformio.org/) with the Arduino framework for the ESP32.
+The project uses [ESP-IDF](https://docs.espressif.com/projects/esp-idf/) and is intended to be opened with the Espressif ESP-IDF extension for VS Code.
 
 ### Build & flash
 
-```bash
-# Install PlatformIO CLI if needed
-pip install platformio
+```powershell
+# Set up the ESP-IDF environment for PowerShell.
+& "$env:IDF_PATH\export.ps1"
 
-# Build
-pio run
+# Configure the project for ESP32-WROOM-32.
+idf.py set-target esp32
 
-# Build and upload to connected ESP32
-pio run --target upload
-
-# Monitor serial output
-pio device monitor
+# Build, flash, and monitor a connected board.
+idf.py build
+idf.py -p PORT flash monitor
 ```
 
-Or open the project folder in **VS Code** with the PlatformIO extension installed and use the PlatformIO toolbar buttons.
+Open the project folder in **VS Code** with the Espressif ESP-IDF extension. Use **ESP-IDF: Build your project**, then **ESP-IDF: Flash your project** and **ESP-IDF: Monitor your device**.
 
 ## How it works
 
@@ -46,13 +44,15 @@ Or open the project folder in **VS Code** with the PlatformIO extension installe
 ## Project structure
 
 ```
-src/
-  main.cpp            – Arduino setup/loop and draw routine
+src/                 ESP-IDF component
+  CMakeLists.txt     – Component build configuration
+  main.cpp            – ESP-IDF application entry point and draw routine
   CompositeOutput.h   – I2S/DAC NTSC/PAL composite signal generator
   CompositeGraphics.h – Double-buffered graphics primitives
   Font.h              – Bitmap font renderer
   Image.h             – Bitmap image renderer
   TriangleTree.h      – Sorted triangle rasteriser
   font6x8.h           – 6×8 pixel ASCII font data
-platformio.ini        – PlatformIO project configuration
+CMakeLists.txt        – ESP-IDF project configuration
+sdkconfig.defaults    – ESP32 target and CPU frequency defaults
 ```
