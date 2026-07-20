@@ -17,16 +17,16 @@ class CompositeGraphics
 
   TriangleTree<CompositeGraphics> *triangleBuffer;
   TriangleTree<CompositeGraphics> *triangleRoot;
-  int trinagleBufferSize;
+  int triangleBufferSize;
   int triangleCount;
 
-  CompositeGraphics(int w, int h, int initialTrinagleBufferSize = 0)
+  CompositeGraphics(int w, int h, int initialTriangleBufferSize = 0)
     :xres(w),
     yres(h)
   {
     font = 0;
     cursorX = cursorY = cursorBaseX = 0;
-    trinagleBufferSize = initialTrinagleBufferSize;
+    triangleBufferSize = initialTriangleBufferSize;
     triangleCount = 0;
     frontColor = 50;
     backColor = -1;
@@ -47,7 +47,7 @@ class CompositeGraphics
       frame[y] = (char*)malloc(xres);
       backbuffer[y] = (char*)malloc(xres);
     }
-    triangleBuffer = (TriangleTree<CompositeGraphics>*)malloc(sizeof(TriangleTree<CompositeGraphics>) * trinagleBufferSize);
+    triangleBuffer = (TriangleTree<CompositeGraphics>*)malloc(sizeof(TriangleTree<CompositeGraphics>) * triangleBufferSize);
   }
 
   void setFont(Font<CompositeGraphics> &font)
